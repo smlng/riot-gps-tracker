@@ -13,19 +13,14 @@
 #include "net/loramac.h"
 #include "semtech_loramac.h"
 
+#include "lora-keys.h"
+#include "hardware.h"
 
 /* we will use Cayenne LPP for displaying our data */
 #include "cayenne_lpp.h"
 
 #define BUF_SIZE    64
 #define LORA_PORT   1
-
-/* Use a unique value for DEV_EUI in TTN */
-#define DEV_EUI         "000D526824C2E27A"
-
-/* APP_EUI and AP_KEY are provided by the network server (TTN)*/
-#define APP_EUI         "70B3D57ED000912E"
-#define APP_KEY         "446E62ABCC4A77B865253A3C4B30AA1D"
 
 #define LORAWAN_DATARATE 5
 
@@ -57,13 +52,13 @@ void setup_lora(semtech_loramac_t *loramac) {
     semtech_loramac_init(loramac);
 
     /* load required keys into LoRaMAC */
-    fmt_hex_bytes(buf, DEV_EUI);
+    fmt_hex_bytes(buf, LORA_DEVEUI);
     semtech_loramac_set_deveui(loramac, buf);
 
-    fmt_hex_bytes(buf, APP_EUI);
+    fmt_hex_bytes(buf, LORA_APPEUI);
     semtech_loramac_set_appeui(loramac, buf);
 
-    fmt_hex_bytes(buf, APP_KEY);
+    fmt_hex_bytes(buf, LORA_APPKEY);
     semtech_loramac_set_appkey(loramac, buf);
 
     /* Try to join by Over The Air Activation */
@@ -167,17 +162,33 @@ static void *printer(void *arg)
     return NULL;
 }
 
+/**
+ * @brief Initializes the gps enable pin and the external mux 2 control line,
+ *        then enables the gps.
+ */
+static void init_gps(void)
+{
+    /* GPS enable pin */
+    gpio_init(GPS_EN_PIN, GPIO_OUT);
+
+    /* External IO control 2 line */
+    gpio_init(EXT_IO_CTRL2_PIN, GPIO_OUT);
+
+    /* Select GPS enable pin on the external IO 2 mux */
+    gpio_set(EXT_IO_CTRL2_PIN);
+
+    /* Enable GPS */
+    gpio_clear(GPS_EN_PIN);
+}
+
 int main(void)
 {
-#if 0
-    gpio_init(GPIO_PIN(0, 12), GPIO_OUT);
-    gpio_init(GPIO_PIN(1, 3), GPIO_OUT);
 
-    gpio_set(GPIO_PIN(0, 12));
-    gpio_clear(GPIO_PIN(1, 3));
+    /* Initialize and enable gps */
+    init_gps();
 
-    EN3V3_ON;
-#endif
+    /* Turn LED0 off to save power */
+    LED0_OFF;
 
     /* initialize UART */
     uart_init(UART_DEV(1), BAUDRATE, rx_cb, NULL);
