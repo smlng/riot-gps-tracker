@@ -1,15 +1,17 @@
-APPLICATION = uart_test
+APPLICATION = gps_tracker
 RIOTBASE ?= ../RIOT
+
+BOARD=lobaro-lorabox
 
 USEMODULE += shell
 USEMODULE += xtimer
 USEPKG += minmea
-#
+
 # Use by default sx1276 and region EU868
-LORA_DRIVER ?= sx1276
+LORA_DRIVER ?= sx1272
 LORA_REGION ?= EU868
 
-#DEVELHELP=1
+DEVELHELP=1
 
 # Semtech LoRaMAC pkg is required in order to user LoRaWAN
 USEPKG += semtech-loramac
