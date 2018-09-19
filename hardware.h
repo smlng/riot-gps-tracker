@@ -5,9 +5,9 @@
  * @Name    GPS enable configuration
  * @{
  */
-#define GPS_EN_PORT     GPIOB
-#define GPS_PIN_NUM     3
-#define GPS_EN_PIN      GPIO_PIN(PORT_B, GPS_PIN_NUM)
+#define GPS_EN_PORT        GPIOB
+#define GPS_EN_PIN_NUM     3
+#define GPS_EN_PIN         GPIO_PIN(PORT_B, GPS_EN_PIN_NUM)
 /** @} */
 
 /**

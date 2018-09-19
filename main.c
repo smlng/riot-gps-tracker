@@ -13,28 +13,15 @@
 #include "net/loramac.h"
 #include "semtech_loramac.h"
 
-#include "lora-keys.h"
-#include "hardware.h"
-
 /* we will use Cayenne LPP for displaying our data */
 #include "cayenne_lpp.h"
 
-#define BUF_SIZE    64
-#define LORA_PORT   1
+#include "lora-keys.h"
+#include "hardware.h"
+#include "app-config.h"
 
-#define LORAWAN_DATARATE 5
-
-/* we use "Dynamic Sensor Payload for our data */
-#define CAYENNE_LPP_CHANNEL 1
-
-/* we must respect the duty cycle limitations */
-#define SLEEP_TIME 10
-
-#define UART_BUFSIZE        (128U)
-#define PRINTER_PRIO        (THREAD_PRIORITY_MAIN - 1)
-#define TX_PERIOD           (10000000U)
-
-#define BAUDRATE (9600)
+#define ENABLE_DEBUG (1)
+#include "debug.h"
 
 static cayenne_lpp_t lpp;
 semtech_loramac_t g_loramac;
@@ -69,7 +56,7 @@ void setup_lora(semtech_loramac_t *loramac) {
         puts("Join Success");
     }
 }
-void send_lora_data(semtech_loramac_t *loramac, float lat, float lon) {
+void send_lora_data(semtech_loramac_t *loramac, float lat, float lon, int link) {
 
     printf("Sending:");
 
@@ -77,6 +64,7 @@ void send_lora_data(semtech_loramac_t *loramac, float lat, float lon) {
     cayenne_lpp_reset(&lpp);
 
     cayenne_lpp_add_gps(&lpp, CAYENNE_LPP_CHANNEL, lat, lon ,0);
+    cayenne_lpp_add_digital_input(&lpp, 2, link);
 
     semtech_loramac_set_tx_mode(loramac, LORAMAC_TX_UNCNF);
     semtech_loramac_set_tx_port(loramac, LORA_PORT);
@@ -114,11 +102,12 @@ void send_lora_data(semtech_loramac_t *loramac, float lat, float lon) {
     }
 }
 
-static void rx_cb(void *arg, uint8_t data)
+static void uart_rx_cb(void *arg, uint8_t data)
 {
     (void) arg;
     rx_mem[counter++] = data;
 
+    /* Check if received a complete frame */
     if (data == '\n') {
         rx_mem[counter++] = 0;
         counter = 0;
@@ -127,10 +116,35 @@ static void rx_cb(void *arg, uint8_t data)
     }
 }
 
-void cb(void *arg)
+void start_gps(void *arg)
 {
     (void) arg;
+    puts("Starting UART and GPS");
+
+    /* Enable UART */
     uart_poweron(UART_DEV(1));
+
+    /* Enable GPS */
+    gpio_clear(GPS_EN_PIN);
+}
+
+void stop_gps(int gpsFixQuality)
+{
+    static int gpsQualityCount = 0;
+
+    puts("Stopping UART and GPS");
+
+    /* Save the amount of readings with fixed quality */
+    gpsQualityCount = gpsQualityCount * gpsFixQuality + gpsFixQuality;
+
+    /* Disable UART */
+    uart_poweroff(UART_DEV(1));
+
+    if (gpsQualityCount >= GPS_FIXED_TH) {
+        DEBUG("Enough times fixed, turning GPS off\n");
+        /* Disable GPS */
+        gpio_set(GPS_EN_PIN);
+    }
 }
 
 static void *printer(void *arg)
@@ -138,24 +152,39 @@ static void *printer(void *arg)
     (void)arg;
     msg_t msg;
     msg_t msg_queue[8];
+    //struct minmea_sentence_rmc frame;
+    struct minmea_sentence_gga frame;
+    xtimer_t gps_read_timer;
+    gps_read_timer.callback = start_gps;
+
     msg_init_queue(msg_queue, 8);
-    struct minmea_sentence_rmc frame;
-    xtimer_t uart_timer;
-    uart_timer.callback = cb;
+
+    start_gps(NULL);
 
     while (1) {
         msg_receive(&msg);
-        if(minmea_sentence_id(rx_mem, false) == MINMEA_SENTENCE_RMC) {
-            minmea_parse_rmc(&frame, rx_mem);
 
-            printf("TX: %d, %d\n", (int) frame.latitude.value, (int) frame.longitude.value);
+        /* Check if the messages is a valid minmea sentence */
+        if(minmea_sentence_id(rx_mem, false) == MINMEA_SENTENCE_GGA) {
 
-            //Send value
-            send_lora_data(&g_loramac, minmea_tocoord(&frame.latitude), minmea_tocoord(&frame.longitude));
-            uart_poweroff(UART_DEV(1));
-            xtimer_set(&uart_timer, TX_PERIOD);
+            minmea_parse_gga(&frame, rx_mem);
+
+            stop_gps(frame.fix_quality);
+
+            printf("TX: %d, %d. Quality: %d\n", (int)frame.latitude.value, (int)frame.longitude.value, frame.fix_quality);
+
+            send_lora_data(&g_loramac, minmea_tocoord(&frame.latitude),
+                           minmea_tocoord(&frame.longitude), frame.fix_quality);
+
+            // minmea_parse_rmc(&frame, rx_mem);
+
+            // printf("TX: %d, %d\n", (int) frame.latitude.value, (int) frame.longitude.value);
+
+            // //Send value
+            // send_lora_data(&g_loramac, minmea_tocoord(&frame.latitude),
+            //               minmea_tocoord(&frame.longitude));
         }
-
+        xtimer_set(&gps_read_timer, TX_PERIOD);
     }
 
     /* this should never be reached */
@@ -178,7 +207,7 @@ static void init_gps(void)
     gpio_set(EXT_IO_CTRL2_PIN);
 
     /* Enable GPS */
-    gpio_clear(GPS_EN_PIN);
+    //gpio_clear(GPS_EN_PIN);
 }
 
 int main(void)
@@ -187,11 +216,8 @@ int main(void)
     /* Initialize and enable gps */
     init_gps();
 
-    /* Turn LED0 off to save power */
-    LED0_OFF;
-
     /* initialize UART */
-    uart_init(UART_DEV(1), BAUDRATE, rx_cb, NULL);
+    uart_init(UART_DEV(1), BAUDRATE, uart_rx_cb, NULL);
 
 
     setup_lora(&g_loramac);
