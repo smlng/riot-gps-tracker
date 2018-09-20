@@ -202,6 +202,9 @@ static void init_gps(void)
 
 int main(void)
 {
+    /* Enable the onboard Step Up regulator */
+    EN3V3_ON;
+
     /* Initialize and enable gps */
     init_gps();
 
