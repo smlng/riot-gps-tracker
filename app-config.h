@@ -1,24 +1,27 @@
 #ifndef _APP_CONFIG_H
 #define _APP_CONFIG_H
 
-#define BUF_SIZE    64
-#define LORA_PORT   1
-
-#define LORAWAN_DATARATE 5
+/* LoRaWAN application configurations */
+#define APP_LORAWAN_RX_BUF_SIZE         64
+#define APP_LORAWAN_TX_PORT             1
+#define APP_LORAWAN_DATARATE            5
+#define APP_LORAWAN_JOIN_RETRY_TIME     5
 
 /* we use "Dynamic Sensor Payload for our data */
-#define CAYENNE_LPP_CHANNEL 1
+#define APP_CAYENNE_LPP_GPS_CHANNEL         1
 
 /* we must respect the duty cycle limitations */
-#define SLEEP_TIME 10
+#define APP_SLEEP_TIME 10
 
-#define UART_BUFSIZE        (128U)
-#define PRINTER_PRIO        (THREAD_PRIORITY_MAIN - 1)
-#define TX_PERIOD           (10000000U)
+#define APP_GPS_UART_BUFSIZE        (128U)
+#define APP_GPS_UART_BAUDRATE       (9600)
+
+#define APP_THREAD_SENDER_PRIO            (THREAD_PRIORITY_MAIN - 1)
+
+#define APP_TX_PERIOD               (10000000U)
 
 /* Amount of measurements before turning GPS off */
-#define GPS_FIXED_TH   3
+#define APP_GPS_FIXED_TH   3
 
-#define BAUDRATE (9600)
 
 #endif
