@@ -16,7 +16,7 @@
 #define APP_GPS_UART_BUFSIZE        (128U)
 #define APP_GPS_UART_BAUDRATE       (9600)
 
-#define APP_THREAD_SENDER_PRIO            (THREAD_PRIORITY_MAIN - 1)
+#define APP_THREAD_SENDER_PRIO      (THREAD_PRIORITY_MAIN - 1)
 
 #define APP_TX_PERIOD               (10000000U)
 

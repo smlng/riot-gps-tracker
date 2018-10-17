@@ -27,5 +27,6 @@ USEMODULE += fmt
 
 # Tell LoRaMAC pkg which region should be used
 CFLAGS += -DREGION_$(LORA_REGION)
+CFLAGS += -DLORAMAC_ACTIVE_REGION=LORAMAC_REGION_$(LORA_REGION)
 
 include $(RIOTBASE)/Makefile.include
