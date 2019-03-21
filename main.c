@@ -16,7 +16,7 @@
 #include "config.h"
 #include "gps.h"
 
-#define ENABLE_DEBUG        (1)
+#define ENABLE_DEBUG        (0)
 #include "debug.h"
 
 
@@ -50,6 +50,8 @@ void lorawan_setup(semtech_loramac_t *loramac)
 int create_buf(int32_t lat, int32_t lon, int16_t alt, uint8_t sat,
                uint8_t *buf, size_t maxlen)
 {
+    DEBUG("%s\n", __func__);
+
     size_t len = sizeof(lat) + sizeof(lon) + sizeof(alt) + sizeof(sat);
     if (maxlen < len) {
         return (-1);
@@ -65,6 +67,7 @@ int create_buf(int32_t lat, int32_t lon, int16_t alt, uint8_t sat,
     memcpy(buf, &alt, sizeof(alt));
     buf += sizeof(alt);
     memcpy(buf, &sat, sizeof(sat));
+
     return len;
 }
 
