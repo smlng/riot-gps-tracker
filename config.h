@@ -10,16 +10,14 @@
 #define APP_LORAWAN_JOIN_RETRY_TIME     10
 
 /* we use "Dynamic Sensor Payload for our data */
-#define APP_CAYENNE_LPP_GPS_CHANNEL     1
+#define CAYENNE_LPP_CHANNEL_GPS         (1)
+#define CAYENNE_LPP_CHANNEL_SAT         (2)
 
 #define GPS_UART_BAUDRATE               (9600)
 #define GPS_UART_DEV                    UART_DEV(1)
-#define GPS_QUALITY_THRESHOLD           (3U)
-#define GPS_MAXWAIT_S                   (5U)
-#define GPS_MAXWAIT_US                  (GPS_MAXWAIT_S * US_PER_SEC)
+#define GPS_QUALITY_THRESHOLD           (4U)
 
 /* we must respect the duty cycle limitations */
-#define APP_SLEEP_TIME_S                (20U)
-#define APP_TX_PERIOD_US                (APP_SLEEP_TIME_S * US_PER_SEC)
+#define APP_SLEEP_TIME_S                (17U)
 
 #endif

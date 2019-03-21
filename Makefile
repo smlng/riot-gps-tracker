@@ -16,9 +16,6 @@ DEVELHELP=1
 # Semtech LoRaMAC pkg is required in order to user LoRaWAN
 USEPKG += semtech-loramac
 
-# Cayenne LPP pkg is required in order to send data to Cayenne app
-USEPKG += cayenne-lpp
-
 # Load the LoRa Module
 USEMODULE += $(LORA_DRIVER)
 

@@ -1,8 +1,9 @@
 #include <stdio.h>
-
 #include <stdlib.h>
+#include <string.h>
 
 #include "board.h"
+#include "byteorder.h"
 #include "periph/uart.h"
 #include "xtimer.h"
 #include "fmt.h"
@@ -10,10 +11,7 @@
 #include "net/loramac.h"
 #include "semtech_loramac.h"
 
-/* we will use Cayenne LPP for displaying our data */
-#include "cayenne_lpp.h"
-
-#include "lora-keys.beta.h"
+#include "lora-keys.bear.h"
 #include "hardware.h"
 #include "config.h"
 #include "gps.h"
@@ -21,13 +19,13 @@
 #define ENABLE_DEBUG        (1)
 #include "debug.h"
 
-semtech_loramac_t g_loramac;
+
+static semtech_loramac_t g_loramac;
+static uint8_t buf[LORAWAN_BUF_SIZE];
 
 void lorawan_setup(semtech_loramac_t *loramac)
 {
     DEBUG("%s\n", __func__);
-    uint8_t buf[LORAWAN_BUF_SIZE];
-
     /* init LoRaMAC */
     semtech_loramac_init(loramac);
     /* load device EUI */
@@ -49,16 +47,30 @@ void lorawan_setup(semtech_loramac_t *loramac)
     DEBUG("success\n");
 }
 
-void lorawan_send(semtech_loramac_t *loramac, float lat, float lon, float alt, unsigned sat)
+int create_buf(int32_t lat, int32_t lon, int16_t alt, uint8_t sat,
+               uint8_t *buf, size_t maxlen)
+{
+    size_t len = sizeof(lat) + sizeof(lon) + sizeof(alt) + sizeof(sat);
+    if (maxlen < len) {
+        return (-1);
+    }
+    memset(buf, 0, maxlen);
+    lat = htonl(lat);
+    memcpy(buf, &lat, sizeof(lat));
+    buf += sizeof(lat);
+    lon = htonl(lon);
+    memcpy(buf, &lon, sizeof(lon));
+    buf += sizeof(lon);
+    alt = htons(alt);
+    memcpy(buf, &alt, sizeof(alt));
+    buf += sizeof(alt);
+    memcpy(buf, &sat, sizeof(sat));
+    return len;
+}
+
+void lorawan_send(semtech_loramac_t *loramac, uint8_t *buf, uint8_t len)
 {
     DEBUG("%s\n", __func__);
-
-    cayenne_lpp_t lpp;
-    /* reset our cayenne buffer */
-    cayenne_lpp_reset(&lpp);
-    /* write data into frame */
-    cayenne_lpp_add_gps(&lpp, APP_CAYENNE_LPP_GPS_CHANNEL, lat, lon, alt);
-    cayenne_lpp_add_digital_input(&lpp, 2, sat);
 
     semtech_loramac_set_tx_mode(loramac, LORAMAC_TX_UNCNF);
     semtech_loramac_set_tx_port(loramac, APP_LORAWAN_TX_PORT);
@@ -66,7 +78,7 @@ void lorawan_send(semtech_loramac_t *loramac, float lat, float lon, float alt, u
     semtech_loramac_set_dr(loramac, APP_LORAWAN_DATARATE);
     /* try to send data */
     DEBUG(". send: ");
-    unsigned ret = semtech_loramac_send(loramac, lpp.buffer, lpp.cursor);
+    unsigned ret = semtech_loramac_send(loramac, buf, len);
     switch (ret) {
         case SEMTECH_LORAMAC_TX_OK:
             DEBUG("success\n");
@@ -111,33 +123,27 @@ int main(void)
 {
     /* Enable the onboard Step Up regulator */
     EN3V3_ON;
-
     /* Initialize and enable gps */
     gps_init(GPS_UART_DEV, GPS_UART_BAUDRATE);
-
     /* Setup LoRa parameters and OTAA join */
     lorawan_setup(&g_loramac);
 
     unsigned gps_quality = 0;
     bool gps_off = true;
 
-    float lat;
-    float lon;
-    float alt;
-    unsigned sat;
-    unsigned fix;
-
     while (1) {
         if (gps_off) {
             gps_start(GPS_UART_DEV);
             gps_off = false;
         }
-        lat = 0;
-        lon = 0;
-        alt = 0;
-        sat = 0;
-        fix = 0;
-        if(gps_read_float(&lat, &lon, &alt, &sat, &fix, GPS_MAXWAIT_US) == 0) {
+
+        int32_t lat  = 0;
+        int32_t lon  = 0;
+        int32_t alt  = 0;
+        unsigned sat = 0;
+        unsigned fix = 0;
+
+        if(gps_read(&lat, &lon, &alt, &sat, &fix) == 0) {
             DEBUG(". got GPS data\n");
             gps_quality += fix;
             if (gps_quality > GPS_QUALITY_THRESHOLD) {
@@ -145,12 +151,14 @@ int main(void)
                 gps_stop(GPS_UART_DEV);
                 gps_quality = 0;
                 gps_off = true;
-                lorawan_send(&g_loramac, lat, lon, alt, sat);
-                xtimer_sleep(APP_SLEEP_TIME_S);
+                int len = create_buf(lat, lon, alt, sat, &buf[0], LORAWAN_BUF_SIZE);
+                if (len > 0) {
+                    lorawan_send(&g_loramac, buf, len);
+                    xtimer_sleep(APP_SLEEP_TIME_S);
+                }
             }
             else {
                 DEBUG(".. wait for more\n");
-                xtimer_sleep(1);
             }
         }
     }
