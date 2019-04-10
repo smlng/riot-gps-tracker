@@ -23,6 +23,15 @@
 static semtech_loramac_t g_loramac;
 static uint8_t buf[LORAWAN_BUF_SIZE];
 
+static void _blink(bool fail)
+{
+    unsigned count = (fail) ? 10 : 4;
+    for (unsigned i = 0; i < count; ++i) {
+        LED0_TOGGLE;
+        xtimer_usleep(US_PER_SEC / count);
+    }
+}
+
 void lorawan_setup(semtech_loramac_t *loramac)
 {
     DEBUG("%s\n", __func__);
@@ -38,13 +47,17 @@ void lorawan_setup(semtech_loramac_t *loramac)
     fmt_hex_bytes(buf, LORA_APPKEY);
     semtech_loramac_set_appkey(loramac, buf);
     /* Try to join by Over The Air Activation */
-    DEBUG(". join LoRaWAN: ");
+    printf(". join LoRaWAN: ");
+    LED0_ON;
     while (semtech_loramac_join(loramac, LORAMAC_JOIN_OTAA) !=
            SEMTECH_LORAMAC_JOIN_SUCCEEDED) {
-        DEBUG("failed\n... retry:");
+        printf("failed\n... retry:");
+        _blink(true);
         xtimer_sleep(APP_LORAWAN_JOIN_RETRY_TIME);
+        LED0_ON;
     }
-    DEBUG("success\n");
+    printf("success\n");
+    _blink(false);
 }
 
 int create_buf(int32_t lat, int32_t lon, int16_t alt, uint8_t sat,
@@ -124,6 +137,8 @@ void lorawan_send(semtech_loramac_t *loramac, uint8_t *buf, uint8_t len)
 
 int main(void)
 {
+    /* set LED0 on */
+    LED0_ON;
     /* Enable the onboard Step Up regulator */
     EN3V3_ON;
     /* Initialize and enable gps */
@@ -133,7 +148,7 @@ int main(void)
 
     unsigned gps_quality = 0;
     bool gps_off = true;
-
+    unsigned counter = 0;
     while (1) {
         if (gps_off) {
             gps_start(GPS_UART_DEV);
@@ -149,10 +164,13 @@ int main(void)
         if(gps_read(&lat, &lon, &alt, &sat, &fix) == 0) {
             DEBUG(". got GPS data\n");
             gps_quality += fix;
+            counter++;
             if (gps_quality > GPS_QUALITY_THRESHOLD) {
-                DEBUG(".. send\n");
+                /* got enough samples */
+                printf(".. send (%"PRIi32",%"PRIi32",%"PRIi32",%u)\n", lat, lon, alt, sat);
                 gps_stop(GPS_UART_DEV);
                 gps_quality = 0;
+                counter = 0;
                 gps_off = true;
                 int len = create_buf(lat, lon, alt, sat, &buf[0], LORAWAN_BUF_SIZE);
                 if (len > 0) {
@@ -160,7 +178,17 @@ int main(void)
                     xtimer_sleep(APP_SLEEP_TIME_S);
                 }
             }
+            else if (counter > GPS_COUNTER_THRESHOLD) {
+                /* no GPS data for some time, go to sleep and try again */
+                printf(".. retry after sleep\n");
+                gps_stop(GPS_UART_DEV);
+                gps_quality = 0;
+                counter = 0;
+                gps_off = true;
+                xtimer_sleep(APP_SLEEP_TIME_S);
+            }
             else {
+                /* not enough samples yet */
                 DEBUG(".. wait for more\n");
             }
         }

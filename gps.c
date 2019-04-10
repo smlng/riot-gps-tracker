@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "isrpipe.h"
+#include "isrpipe/read_timeout.h"
 #include "periph/gpio.h"
 #include "periph/uart.h"
 

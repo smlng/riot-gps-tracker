@@ -16,8 +16,9 @@
 #define GPS_UART_BAUDRATE               (9600)
 #define GPS_UART_DEV                    UART_DEV(1)
 #define GPS_QUALITY_THRESHOLD           (4U)
+#define GPS_COUNTER_THRESHOLD           (32U)
 
 /* we must respect the duty cycle limitations */
-#define APP_SLEEP_TIME_S                (17U)
+#define APP_SLEEP_TIME_S                (19U)
 
 #endif

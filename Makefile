@@ -3,6 +3,8 @@ RIOTBASE ?= ../RIOT
 
 BOARD=lobaro-lorabox
 
+USEMODULE += isrpipe
+USEMODULE += isrpipe_read_timeout
 USEMODULE += shell
 USEMODULE += xtimer
 USEPKG += minmea
