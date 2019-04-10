@@ -136,7 +136,7 @@ void gps_stop(uart_t dev)
 {
     DEBUG("%s\n", __func__);
     /* Disable GPS */
-    gpio_set(GPS_EN_PIN);
+    //gpio_set(GPS_EN_PIN);
     /* Disable UART */
     uart_poweroff(dev);
     LED0_OFF;
